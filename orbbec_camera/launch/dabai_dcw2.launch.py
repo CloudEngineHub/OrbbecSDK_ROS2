@@ -92,6 +92,8 @@ def generate_launch_description():
         DeclareLaunchArgument('depth_format', default_value='Y11'),
         DeclareLaunchArgument('enable_depth', default_value='true'),
         DeclareLaunchArgument('flip_depth', default_value='false'),
+        DeclareLaunchArgument('min_depth_limit', default_value='0'),
+        DeclareLaunchArgument('max_depth_limit', default_value='0'),
         DeclareLaunchArgument('depth_qos', default_value='default'),
         DeclareLaunchArgument('depth_camera_info_qos', default_value='default'),
         # /config/depthfilter/Openni_device.json，need config path.
@@ -118,7 +120,6 @@ def generate_launch_description():
         DeclareLaunchArgument('soft_filter_max_diff', default_value='-1'),
         DeclareLaunchArgument('soft_filter_speckle_size', default_value='-1'),
         DeclareLaunchArgument('ordered_pc', default_value='false'),
-        DeclareLaunchArgument('use_hardware_time', default_value='false'),
         DeclareLaunchArgument('enable_depth_scale', default_value='true'),
         DeclareLaunchArgument('align_mode', default_value='HW'),
         DeclareLaunchArgument('laser_energy_level', default_value='-1'),
