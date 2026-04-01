@@ -39,6 +39,7 @@
 #include <diagnostic_updater/diagnostic_updater.hpp>
 
 #include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
 #include <camera_info_manager/camera_info_manager.hpp>
 
 #include <image_publisher/image_publisher.hpp>
@@ -342,6 +343,10 @@ class OBCameraNode {
   void FillImuDataCopy(const IMUData& imu_data, std::deque<sensor_msgs::msg::Imu>& imu_msgs);
 
   bool setupFormatConvertType(OBFormat format);
+  bool hasCompressedImageSubscriber(const stream_index_pair& stream_index) const;
+  void publishCompressedColorImage(const std::shared_ptr<ob::Frame>& frame,
+                                   const stream_index_pair& stream_index,
+                                   const rclcpp::Time& timestamp, const std::string& frame_id);
 
   orbbec_camera_msgs::msg::IMUInfo createIMUInfo(const stream_index_pair& stream_index);
 
@@ -401,6 +406,8 @@ class OBCameraNode {
   std::map<stream_index_pair, bool> flip_stream_;
   std::map<stream_index_pair, std::string> stream_name_;
   std::map<stream_index_pair, std::shared_ptr<image_publisher>> image_publishers_;
+  std::map<stream_index_pair, rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr>
+      compressed_image_publishers_;
   std::map<stream_index_pair, rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr>
       camera_info_publishers_;
 
