@@ -99,6 +99,8 @@ def generate_launch_description():
         DeclareLaunchArgument('retry_on_usb3_detection_failure', default_value='false'),
         DeclareLaunchArgument('laser_energy_level', default_value='-1'),
         DeclareLaunchArgument('enable_heartbeat', default_value='false'),
+        DeclareLaunchArgument('enable_frame_timestamp_csv', default_value='false'),
+        DeclareLaunchArgument('frame_timestamp_csv_file', default_value=''),
     ]
 
     # Node configuration
