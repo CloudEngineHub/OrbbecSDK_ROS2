@@ -34,6 +34,22 @@
 namespace orbbec_camera {
 using namespace std::chrono_literals;
 
+namespace {
+
+int64_t getSystemNowUs() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+             std::chrono::system_clock::now().time_since_epoch())
+      .count();
+}
+
+int64_t getSteadyNowUs() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
+}  // namespace
+
 OBCameraNode::OBCameraNode(rclcpp::Node *node, std::shared_ptr<ob::Device> device,
                            std::shared_ptr<Parameters> parameters, bool use_intra_process)
     : node_(node),
@@ -58,6 +74,18 @@ OBCameraNode::OBCameraNode(rclcpp::Node *node, std::shared_ptr<ob::Device> devic
   compression_params_.push_back(cv::IMWRITE_PNG_STRATEGY_DEFAULT);
   setupDefaultImageFormat();
   setupTopics();
+  if (enable_frame_timestamp_csv_) {
+    if (frame_timestamp_csv_file_.empty()) {
+      frame_timestamp_csv_file_ =
+          (std::filesystem::current_path() / (camera_name_ + "_frame_timestamp_stats.csv"))
+              .string();
+    }
+    frame_timestamp_csv_logger_ =
+        std::make_unique<FrameTimestampCsvLogger>(true, frame_timestamp_csv_file_, logger_);
+    if (!frame_timestamp_csv_logger_->enabled()) {
+      frame_timestamp_csv_logger_.reset();
+    }
+  }
 #if defined(USE_RK_HW_DECODER)
   jpeg_decoder_ = std::make_unique<RKJPEGDecoder>(width_[COLOR], height_[COLOR]);
 #elif defined(USE_NV_HW_DECODER)
@@ -110,6 +138,10 @@ void OBCameraNode::clean() noexcept {
   std::lock_guard<decltype(device_lock_)> lock(device_lock_);
   RCLCPP_WARN_STREAM(logger_, "Do destroy ~OBCameraNode");
   is_running_.store(false);
+  if (frame_timestamp_csv_logger_) {
+    frame_timestamp_csv_logger_->shutdown();
+    frame_timestamp_csv_logger_.reset();
+  }
   RCLCPP_WARN_STREAM(logger_, "Stop tf thread");
   if (tf_thread_ && tf_thread_->joinable()) {
     tf_thread_->join();
@@ -1247,6 +1279,8 @@ void OBCameraNode::getParameters() {
   setAndGetNodeParameter<int>(depth_ae_roi_bottom_, "depth_ae_roi_bottom", -1);
 
   setAndGetNodeParameter<std::string>(time_domain_, "time_domain", "device");
+  setAndGetNodeParameter<bool>(enable_frame_timestamp_csv_, "enable_frame_timestamp_csv", false);
+  setAndGetNodeParameter<std::string>(frame_timestamp_csv_file_, "frame_timestamp_csv_file", "");
   auto device_info = device_->getDeviceInfo();
   CHECK_NOTNULL(device_info.get());
   auto pid = device_info->pid();
@@ -1820,6 +1854,8 @@ void OBCameraNode::onNewFrameSetCallback(std::shared_ptr<ob::FrameSet> frame_set
   if (frame_set == nullptr) {
     return;
   }
+  const auto frame_set_arrival_system_us = getSystemNowUs();
+  const auto frame_set_arrival_steady_us = getSteadyNowUs();
   try {
     if (!tf_published_) {
       publishStaticTransforms();
@@ -1847,6 +1883,18 @@ void OBCameraNode::onNewFrameSetCallback(std::shared_ptr<ob::FrameSet> frame_set
                      "Depth registration is disabled or align filter is null or depth frame is "
                      "null or color frame is null");
       }
+    }
+    auto final_color_frame = frame_set->getFrame(OB_FRAME_COLOR);
+    auto final_depth_frame = frame_set->getFrame(OB_FRAME_DEPTH);
+    if (frame_timestamp_csv_logger_ && frame_timestamp_csv_logger_->enabled()) {
+      const bool track_color = enable_stream_[COLOR] && static_cast<bool>(final_color_frame);
+      const bool track_depth = enable_stream_[DEPTH] && static_cast<bool>(final_depth_frame);
+      const bool color_publish_expected = track_color;
+      const bool depth_publish_expected = track_depth;
+      frame_timestamp_csv_logger_->recordFrameSet(
+          final_color_frame, final_depth_frame, frame_set_arrival_system_us,
+          frame_set_arrival_steady_us, track_color, track_depth, color_publish_expected,
+          depth_publish_expected);
     }
     if (enable_stream_[COLOR] && color_frame) {
       std::unique_lock<std::mutex> lock(color_frame_queue_lock_);
@@ -2201,6 +2249,11 @@ void OBCameraNode::onNewFrameCallback(const std::shared_ptr<ob::Frame> &frame,
   image_msg->header.frame_id = frame_id;
   CHECK(image_publishers_.count(stream_index) > 0);
   saveImageToFile(stream_index, image, *image_msg);
+  if (frame_timestamp_csv_logger_ && frame_timestamp_csv_logger_->enabled() &&
+      (stream_index == COLOR || stream_index == DEPTH)) {
+    frame_timestamp_csv_logger_->recordPreImagePublish(stream_index.first, frame, getSystemNowUs(),
+                                                       getSteadyNowUs());
+  }
   image_publishers_[stream_index]->publish(std::move(image_msg));
   if (stream_index == COLOR && enable_color_undistortion_ &&
       color_undistortion_publisher_->get_subscription_count() > 0) {

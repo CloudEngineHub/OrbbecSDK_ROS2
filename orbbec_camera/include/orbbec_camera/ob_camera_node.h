@@ -61,6 +61,7 @@
 #include "orbbec_camera/d2c_viewer.h"
 #include "magic_enum/magic_enum.hpp"
 #include "orbbec_camera/image_publisher.h"
+#include "orbbec_camera/frame_timestamp_csv_logger.h"
 #include "jpeg_decoder.h"
 #include <std_msgs/msg/string.hpp>
 
@@ -584,6 +585,9 @@ class OBCameraNode {
   int min_depth_limit_ = 0;
   int max_depth_limit_ = 0;
   std::string time_domain_ = "device";  // device, system, global
+  bool enable_frame_timestamp_csv_ = false;
+  std::string frame_timestamp_csv_file_;
+  std::unique_ptr<FrameTimestampCsvLogger> frame_timestamp_csv_logger_;
   // soft ware trigger
   rclcpp::TimerBase::SharedPtr software_trigger_timer_;
   std::chrono::milliseconds software_trigger_period_{33};
