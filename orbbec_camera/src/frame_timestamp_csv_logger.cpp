@@ -231,7 +231,7 @@ void FrameTimestampCsvLogger::recordPreImagePublishInternal(OBStreamType stream_
                                                             int64_t publish_system_us,
                                                             int64_t publish_steady_us) {
   std::optional<PendingRow> ready_row;
-  const auto frame_index = frame->getIndex();
+  const auto frame_index = frame->index();
 
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
@@ -283,7 +283,7 @@ void FrameTimestampCsvLogger::populateArrivalData(StreamState &state, TrackedStr
 
   state.has_frame = true;
   state.publish_expected = publish_expected;
-  state.frame_index = frame->getIndex();
+  state.frame_index = frame->index();
   if (frame->hasMetadata(OB_FRAME_METADATA_TYPE_FRAME_NUMBER)) {
     state.metadata_frame_number =
         static_cast<int64_t>(frame->getMetadataValue(OB_FRAME_METADATA_TYPE_FRAME_NUMBER));
@@ -296,9 +296,9 @@ void FrameTimestampCsvLogger::populateArrivalData(StreamState &state, TrackedStr
   } else {
     state.sensor_ts_us.reset();
   }
-  state.device_ts_us = static_cast<int64_t>(frame->getTimeStampUs());
-  state.global_ts_us = static_cast<int64_t>(frame->getGlobalTimeStampUs());
-  state.sdk_system_ts_us = static_cast<int64_t>(frame->getSystemTimeStampUs());
+  state.device_ts_us = static_cast<int64_t>(frame->timeStampUs());
+  state.global_ts_us = static_cast<int64_t>(frame->globalTimeStampUs());
+  state.sdk_system_ts_us = static_cast<int64_t>(frame->systemTimeStampUs());
   state.arrival_system_us = arrival_system_us;
   state.arrival_steady_us = arrival_steady_us;
   state.device_ts_delta_us = updateDelta(previous.device_ts_us, state.device_ts_us);
