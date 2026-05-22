@@ -307,22 +307,24 @@ void FrameTimestampCsvLogger::populateArrivalData(StreamState &state, TrackedStr
   state.publish_expected = publish_expected;
   state.frame_index = frame->index();
   state.device_ts_us = static_cast<int64_t>(frame->timeStampUs());
+  state.global_ts_us = static_cast<int64_t>(frame->globalTimeStampUs());
+  state.sdk_system_ts_us = static_cast<int64_t>(frame->systemTimeStampUs());
   if (previous.expected_interval_us <= 0) {
     previous.expected_interval_us = getExpectedIntervalUs(frame);
   }
   state.expected_interval_us = previous.expected_interval_us;
-  if (previous.device_ts_us.has_value() && state.expected_interval_us > 0) {
-    const auto device_ts_delta_us = state.device_ts_us - previous.device_ts_us.value();
-    if (device_ts_delta_us > state.expected_interval_us * 3 / 2) {
+  if (previous.sdk_system_ts_us.has_value() && state.expected_interval_us > 0) {
+    const auto system_ts_delta_us = state.sdk_system_ts_us - previous.sdk_system_ts_us.value();
+    if (system_ts_delta_us > state.expected_interval_us * 3 / 2) {
       const auto lost_frames =
-          std::max<int64_t>(1, device_ts_delta_us / state.expected_interval_us - 1);
+          std::max<int64_t>(1, system_ts_delta_us / state.expected_interval_us - 1);
       previous.dropped_frames += lost_frames;
       reportDropLogFormatOnce();
       RCLCPP_WARN_STREAM(
           logger_, "SDK drop " << (stream == TrackedStream::COLOR ? "color" : "depth") << ": idx="
-                               << state.frame_index << " ts=" << state.device_ts_us << "us"
+                               << state.frame_index << " ts=" << state.sdk_system_ts_us << "us"
                                << " gap=" << std::fixed << std::setprecision(1)
-                               << (static_cast<double>(device_ts_delta_us) / 1000.0) << "ms"
+                               << (static_cast<double>(system_ts_delta_us) / 1000.0) << "ms"
                                << " ideal="
                                << (static_cast<double>(state.expected_interval_us) / 1000.0) << "ms"
                                << " total=" << previous.dropped_frames);
@@ -340,8 +342,6 @@ void FrameTimestampCsvLogger::populateArrivalData(StreamState &state, TrackedStr
   } else {
     state.sensor_ts_us.reset();
   }
-  state.global_ts_us = static_cast<int64_t>(frame->globalTimeStampUs());
-  state.sdk_system_ts_us = static_cast<int64_t>(frame->systemTimeStampUs());
   state.arrival_system_us = arrival_system_us;
   state.arrival_steady_us = arrival_steady_us;
   state.device_ts_delta_us = updateDelta(previous.device_ts_us, state.device_ts_us);
@@ -364,24 +364,25 @@ void FrameTimestampCsvLogger::populatePublishData(StreamState &state, TrackedStr
                                                   int64_t publish_steady_us) {
   auto &previous = stream == TrackedStream::COLOR ? color_previous_ : depth_previous_;
 
-  if (previous.publish_device_ts_us.has_value()) {
-    const auto device_ts_delta_us = state.device_ts_us - previous.publish_device_ts_us.value();
-    if (state.expected_interval_us > 0 && device_ts_delta_us > state.expected_interval_us * 3 / 2) {
+  if (previous.publish_sdk_system_ts_us.has_value()) {
+    const auto system_ts_delta_us =
+        state.sdk_system_ts_us - previous.publish_sdk_system_ts_us.value();
+    if (state.expected_interval_us > 0 && system_ts_delta_us > state.expected_interval_us * 3 / 2) {
       const auto lost_frames =
-          std::max<int64_t>(1, device_ts_delta_us / state.expected_interval_us - 1);
+          std::max<int64_t>(1, system_ts_delta_us / state.expected_interval_us - 1);
       previous.publish_dropped_frames += lost_frames;
       reportDropLogFormatOnce();
       RCLCPP_WARN_STREAM(
           logger_, "PUB drop " << (stream == TrackedStream::COLOR ? "color" : "depth") << ": idx="
-                               << state.frame_index << " ts=" << state.device_ts_us << "us"
+                               << state.frame_index << " ts=" << state.sdk_system_ts_us << "us"
                                << " gap=" << std::fixed << std::setprecision(1)
-                               << (static_cast<double>(device_ts_delta_us) / 1000.0) << "ms"
+                               << (static_cast<double>(system_ts_delta_us) / 1000.0) << "ms"
                                << " ideal="
                                << (static_cast<double>(state.expected_interval_us) / 1000.0) << "ms"
                                << " total=" << previous.publish_dropped_frames);
     }
   }
-  previous.publish_device_ts_us = state.device_ts_us;
+  previous.publish_sdk_system_ts_us = state.sdk_system_ts_us;
 
   state.publish_system_us = publish_system_us;
   state.publish_steady_us = publish_steady_us;
@@ -399,7 +400,7 @@ void FrameTimestampCsvLogger::reportDropLogFormatOnce() {
   RCLCPP_INFO_STREAM(
       logger_,
       "Frame drop log enabled. Format: <SDK|PUB> drop <color|depth>: idx=<frame_index> "
-      "ts=<device_timestamp_us> gap=<actual_interval_ms> ideal=<expected_interval_ms> "
+      "ts=<system_timestamp_us> gap=<actual_interval_ms> ideal=<expected_interval_ms> "
       "total=<total_dropped_frames>. SDK means frame arrival from SDK; PUB means before ROS "
       "image publish.");
 }
