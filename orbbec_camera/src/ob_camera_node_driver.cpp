@@ -435,7 +435,7 @@ void OBCameraNodeDriver::initializeDevice(const std::shared_ptr<ob::Device> &dev
   serial_number_ = device_info_->serialNumber();
   CHECK_NOTNULL(device_info_.get());
   device_unique_id_ = device_info_->uid();
-  if (enable_sync_host_time_ && !isOpenNIDevice(device_info_->pid())) {
+  if (enable_sync_host_time_ && isHostTimeSyncSupported(device_info_->pid())) {
     TRY_EXECUTE_BLOCK(device_->timerSyncWithHost());
     sync_host_time_timer_ = this->create_wall_timer(std::chrono::milliseconds(30000), [this]() {
       if (device_) {
