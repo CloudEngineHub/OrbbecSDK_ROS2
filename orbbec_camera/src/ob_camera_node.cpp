@@ -1445,7 +1445,7 @@ void OBCameraNode::setupPublishers() {
       image_publishers_[stream_index] =
           std::make_shared<image_transport_publisher>(*node_, topic, image_qos_profile);
     }
-    if (stream_index == COLOR && format_[stream_index] == OB_FORMAT_MJPG) {
+    if (is_mjpg_color_stream) {
       compressed_image_publishers_[stream_index] =
           node_->create_publisher<sensor_msgs::msg::CompressedImage>(
               topic + "/compressed",
@@ -2225,6 +2225,14 @@ void OBCameraNode::onNewFrameCallback(const std::shared_ptr<ob::Frame> &frame,
   if (stream_index == COLOR && frame->format() == OB_FORMAT_MJPG &&
       has_compressed_image_subscriber) {
     publishCompressedColorImage(frame, stream_index, timestamp, frame_id);
+    // Record CSV publish timestamp here only when there is no raw image subscriber.
+    // If a raw subscriber also exists, the existing logging at the raw publish site will record
+    // it, avoiding a double call that would corrupt publish_steady_delta_us.
+    if (!has_raw_image_subscriber && frame_timestamp_csv_logger_ &&
+        frame_timestamp_csv_logger_->enabled()) {
+      frame_timestamp_csv_logger_->recordPreImagePublish(stream_index.first, frame,
+                                                         getSystemNowUs(), getSteadyNowUs());
+    }
   }
   CHECK_NOTNULL(image_publishers_[stream_index]);
   if (image_publishers_[stream_index]->get_subscription_count() == 0) {
