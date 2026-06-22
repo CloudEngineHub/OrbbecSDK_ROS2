@@ -319,8 +319,8 @@
         </FemtoMega>
         <FemtoBolt>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -381,8 +381,8 @@
 
          <DaBai>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -488,8 +488,8 @@
 
         <DaBaiDCW>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -530,8 +530,8 @@
 
 		<DaBaiDCW2>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <!-- Depth Filter Params -->
             <!--
             <DepthFilterDDOConfig>./Openni_device.json</DepthFilterDDOConfig>
@@ -575,8 +575,8 @@
         </DaBaiDCW2>
 		<GeminiEW>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -655,12 +655,9 @@
             </IR>
         </DaBaiMax>
 		<DaBaiMaxPro>
-
-
-
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 			<!-- Depth Filter Params -->
             <!--
             <DepthFilterDDOConfig>./Openni_device.json</DepthFilterDDOConfig>
@@ -704,8 +701,8 @@
         </DaBaiMaxPro>
 		<GeminiUW>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -824,8 +821,8 @@
         </GeminiEWLite>
         <DaBaiDC1>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -1049,8 +1046,8 @@
 
         <AstraStereoSU3>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -1091,8 +1088,8 @@
 
         <SV1301S_U3>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -1249,8 +1246,8 @@
 
 		<AstraEmbeddedS>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -1291,8 +1288,8 @@
 
         <Deeyea>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -1370,8 +1367,8 @@
         </SL1502P_U2>
         <GeminiE>
             <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-            optional values: Auto, V4L2, LibUVC-->
-            <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+            optional values: V4L2, LibUVC-->
+            <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
             <Depth>
                 <!--The width of the default resolution, int type-->
                 <Width>640</Width>
@@ -1438,8 +1435,8 @@
         <!--Gemini2 config-->
         <OrbbecGemini2>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
@@ -1612,8 +1609,8 @@
         <!--DaBaiDCL config-->
         <DaBaiDCL>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
@@ -1759,8 +1756,8 @@
         <!--OrbbecGemini2L config-->
         <OrbbecGemini2L>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaulHeartBeat>0</DefaulHeartBeat>
 
@@ -1928,8 +1925,8 @@
         <!--Astra2 config-->
         <OrbbecAstra2>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaulHeartBeat>0</DefaulHeartBeat>
 
@@ -2033,8 +2030,8 @@
         <!-- Gemini2VL config -->
         <OrbbecGemini2VL>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaulHeartBeat>0</DefaulHeartBeat>
 
@@ -2183,8 +2180,8 @@
         <!-- Gemini2XL config -->
         <OrbbecGemini2XL>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaulHeartBeat>0</DefaulHeartBeat>
 
@@ -2425,8 +2422,8 @@
          <!--Gemini2R config-->
         <OrbbecGemini335>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
@@ -2497,8 +2494,8 @@
 		<!--Gemini330 config-->
         <OrbbecGemini330>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
@@ -2569,8 +2566,8 @@
 		<!--Gemini330L config-->
         <OrbbecGemini330L>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
@@ -2641,8 +2638,8 @@
 		   <!--Gemini2RL config-->
         <OrbbecGemini335L>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
@@ -2713,8 +2710,8 @@
         <!--Gemini 336 config-->
         <OrbbecGemini336>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
@@ -2785,8 +2782,8 @@
 		<!--Gemini 336L config-->
         <OrbbecGemini336L>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
@@ -2856,8 +2853,8 @@
         <!--Gemini 215 config-->
         <OrbbecGemini215>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
@@ -2911,8 +2908,8 @@
         <!--Gemini 210 config-->
         <OrbbecGemini210>
 	        <!--Default backend for Linux UVC devices of this model when the global "LinuxUVCBackend" is "Auto";
-	        optional values: Auto, V4L2, LibUVC-->
-	        <LinuxUVCDefaultBackend>Auto</LinuxUVCDefaultBackend>
+	        optional values: V4L2, LibUVC-->
+	        <LinuxUVCDefaultBackend>LibUVC</LinuxUVCDefaultBackend>
 	        <!--Whether to enable heartbeat by default-->
 	        <DefaultHeartBeat>0</DefaultHeartBeat>
 			<!--Whether to enable firmware upgrade foolproof by default, only internal version supports-->
