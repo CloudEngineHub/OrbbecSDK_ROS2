@@ -24,6 +24,8 @@
 #include <csignal>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 
 #include <fstream>
@@ -155,6 +157,23 @@ void OBCameraNodeDriver::init() {
   net_device_ip_ = declare_parameter<std::string>("net_device_ip", "");
   net_device_port_ = static_cast<int>(declare_parameter<int>("net_device_port", 0));
   enumerate_net_device_ = declare_parameter<bool>("enumerate_net_device", false);
+  uvc_backend_ = declare_parameter<std::string>("uvc_backend", "auto");
+  std::string uvc_backend = uvc_backend_;
+  std::transform(uvc_backend.begin(), uvc_backend.end(), uvc_backend.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  if (uvc_backend == "auto") {
+    RCLCPP_INFO_STREAM(logger_, "Use default UVC backend from SDK config");
+  } else if (uvc_backend == "libuvc") {
+    ctx_->setUVCBackend(UVC_BACKEND_LIBUVC);
+    RCLCPP_INFO_STREAM(logger_, "Set UVC backend to " << uvc_backend_);
+  } else if (uvc_backend == "v4l2") {
+    ctx_->setUVCBackend(UVC_BACKEND_V4L2);
+    RCLCPP_INFO_STREAM(logger_, "Set UVC backend to " << uvc_backend_);
+  } else {
+    RCLCPP_WARN_STREAM(logger_, "Unsupported uvc_backend '"
+                                    << uvc_backend_
+                                    << "', using default UVC backend from SDK config");
+  }
   ctx_->enableNetDeviceEnumeration(enumerate_net_device_);
   ctx_->setDeviceChangedCallback([this](const std::shared_ptr<ob::DeviceList> &removed_list,
                                         const std::shared_ptr<ob::DeviceList> &added_list) {

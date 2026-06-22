@@ -83,6 +83,7 @@ def generate_launch_description():
         DeclareLaunchArgument('color_height', default_value='0'),
         DeclareLaunchArgument('color_fps', default_value='0'),
         DeclareLaunchArgument('color_format', default_value='MJPG'),
+        DeclareLaunchArgument('uvc_backend', default_value='auto'),#auto, libuvc or v4l2
         DeclareLaunchArgument('enable_color', default_value='true'),
         DeclareLaunchArgument('color_qos', default_value='default'),
         DeclareLaunchArgument('color_camera_info_qos', default_value='default'),
