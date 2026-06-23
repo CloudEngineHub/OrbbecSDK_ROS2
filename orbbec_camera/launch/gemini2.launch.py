@@ -38,7 +38,7 @@ def generate_launch_description():
         DeclareLaunchArgument('color_gain', default_value='-1'),
         DeclareLaunchArgument('enable_color_auto_white_balance', default_value='true'),
         DeclareLaunchArgument('color_white_balance', default_value='-1'),
-        DeclareLaunchArgument('color_ae_max_exposure', default_value='-1'),
+        DeclareLaunchArgument('color_ae_max_gain', default_value='-1'),
         DeclareLaunchArgument('depth_width', default_value='640'),
         DeclareLaunchArgument('depth_height', default_value='400'),
         DeclareLaunchArgument('depth_fps', default_value='15'),
