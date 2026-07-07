@@ -1615,9 +1615,8 @@ void OBCameraNode::publishLrmObstacleDistance() {
     msg.data = device_->getIntProperty(OB_PROP_LDP_MEASURE_DISTANCE_INT);
     lrm_obstacle_distance_pub_->publish(msg);
   } catch (const ob::Error &e) {
-    auto message = e.getMessage();
     RCLCPP_WARN_THROTTLE(logger_, *node_->get_clock(), 5000,
-                         "Failed to publish LRM obstacle distance: %s", message.c_str());
+                         "Failed to publish LRM obstacle distance: %s", e.getMessage());
   } catch (const std::exception &e) {
     RCLCPP_WARN_THROTTLE(logger_, *node_->get_clock(), 5000,
                          "Failed to publish LRM obstacle distance: %s", e.what());
