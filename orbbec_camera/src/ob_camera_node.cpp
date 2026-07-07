@@ -137,6 +137,14 @@ void OBCameraNode::clean() noexcept {
     frame_timestamp_csv_logger_->shutdown();
     frame_timestamp_csv_logger_.reset();
   }
+  if (software_trigger_timer_) {
+    software_trigger_timer_->cancel();
+    software_trigger_timer_.reset();
+  }
+  if (lrm_obstacle_distance_timer_) {
+    lrm_obstacle_distance_timer_->cancel();
+    lrm_obstacle_distance_timer_.reset();
+  }
   RCLCPP_WARN_STREAM(logger_, "Stop tf thread");
   if (tf_thread_ && tf_thread_->joinable()) {
     tf_thread_->join();
@@ -1226,6 +1234,19 @@ void OBCameraNode::getParameters() {
     depth_registration_ = false;
   }
   setAndGetNodeParameter<bool>(enable_ldp_, "enable_ldp", true);
+  setAndGetNodeParameter<bool>(enable_lrm_obstacle_distance_publish_,
+                               "enable_lrm_obstacle_distance_publish", false);
+  setAndGetNodeParameter<double>(lrm_obstacle_distance_publish_rate_,
+                                 "lrm_obstacle_distance_publish_rate", 10.0);
+  if (enable_lrm_obstacle_distance_publish_ && !enable_ldp_) {
+    RCLCPP_INFO_STREAM(logger_, "enable_lrm_obstacle_distance_publish is true, enabling LDP");
+    enable_ldp_ = true;
+  }
+  if (lrm_obstacle_distance_publish_rate_ <= 0.0) {
+    RCLCPP_WARN_STREAM(logger_, "Invalid lrm_obstacle_distance_publish_rate "
+                                    << lrm_obstacle_distance_publish_rate_ << ", reset to 10.0");
+    lrm_obstacle_distance_publish_rate_ = 10.0;
+  }
   setAndGetNodeParameter<int>(soft_filter_max_diff_, "soft_filter_max_diff", -1);
   setAndGetNodeParameter<int>(soft_filter_speckle_size_, "soft_filter_speckle_size", -1);
   setAndGetNodeParameter<double>(liner_accel_cov_, "linear_accel_cov", 0.0003);
@@ -1566,6 +1587,44 @@ void OBCameraNode::setupPublishers() {
   std_msgs::msg::String msg;
   msg.data = filter_status_.dump(2);
   filter_status_pub_->publish(msg);
+
+  if (enable_lrm_obstacle_distance_publish_) {
+    lrm_obstacle_distance_pub_ =
+        node_->create_publisher<std_msgs::msg::Int32>("lrm/obstacle_distance", rclcpp::QoS(10));
+    RCLCPP_INFO_STREAM(logger_, "Publishing LRM obstacle distance on lrm/obstacle_distance at "
+                                    << lrm_obstacle_distance_publish_rate_ << " Hz");
+    auto publish_period = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::duration<double>(1.0 / lrm_obstacle_distance_publish_rate_));
+    if (publish_period < std::chrono::milliseconds(1)) {
+      publish_period = std::chrono::milliseconds(1);
+    }
+    lrm_obstacle_distance_timer_ =
+        node_->create_wall_timer(publish_period, [this]() { publishLrmObstacleDistance(); });
+  }
+}
+
+void OBCameraNode::publishLrmObstacleDistance() {
+  if (!lrm_obstacle_distance_pub_) {
+    return;
+  }
+  if (lrm_obstacle_distance_pub_->get_subscription_count() == 0) {
+    return;
+  }
+  try {
+    std_msgs::msg::Int32 msg;
+    msg.data = device_->getIntProperty(OB_PROP_LDP_MEASURE_DISTANCE_INT);
+    lrm_obstacle_distance_pub_->publish(msg);
+  } catch (const ob::Error &e) {
+    auto message = e.getMessage();
+    RCLCPP_WARN_THROTTLE(logger_, *node_->get_clock(), 5000,
+                         "Failed to publish LRM obstacle distance: %s", message.c_str());
+  } catch (const std::exception &e) {
+    RCLCPP_WARN_THROTTLE(logger_, *node_->get_clock(), 5000,
+                         "Failed to publish LRM obstacle distance: %s", e.what());
+  } catch (...) {
+    RCLCPP_WARN_THROTTLE(logger_, *node_->get_clock(), 5000,
+                         "Failed to publish LRM obstacle distance: unknown error");
+  }
 }
 
 void OBCameraNode::publishPointCloud(const std::shared_ptr<ob::FrameSet> &frame_set) {
