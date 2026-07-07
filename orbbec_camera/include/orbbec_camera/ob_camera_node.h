@@ -19,6 +19,7 @@
 #include <nlohmann/json.hpp>
 
 #include <memory>
+#include <optional>
 #include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <unordered_map>
@@ -57,6 +58,7 @@
 #include "orbbec_camera_msgs/srv/set_int32.hpp"
 #include "orbbec_camera_msgs/srv/get_bool.hpp"
 #include "orbbec_camera_msgs/srv/set_string.hpp"
+#include "orbbec_camera_msgs/srv/set_stream_profile.hpp"
 #include "orbbec_camera/constants.h"
 #include "orbbec_camera/dynamic_params.h"
 #include "orbbec_camera/d2c_viewer.h"
@@ -105,6 +107,7 @@ using GetString = orbbec_camera_msgs::srv::GetString;
 using SetString = orbbec_camera_msgs::srv::SetString;
 using SetBool = std_srvs::srv::SetBool;
 using GetBool = orbbec_camera_msgs::srv::GetBool;
+using SetStreamProfile = orbbec_camera_msgs::srv::SetStreamProfile;
 
 typedef std::pair<ob_stream_type, int> stream_index_pair;
 
@@ -165,9 +168,29 @@ class OBCameraNode {
     double timestamp_ = -1;  // in nanoseconds
   };
 
+  struct PendingStreamProfile {
+    stream_index_pair stream_index;
+    int requested_width = 0;
+    int requested_height = 0;
+    int requested_fps = 0;
+    std::shared_ptr<ob::VideoStreamProfile> profile;
+  };
+
   void setupDevices();
 
   void setupProfiles();
+
+  std::shared_ptr<ob::VideoStreamProfile> selectVideoStreamProfile(
+      const stream_index_pair& stream_index, int width, int height, int fps, OBFormat format);
+
+  std::optional<stream_index_pair> getImageStreamByName(const std::string& stream_name) const;
+
+  bool validateStreamProfileRequest(const std::shared_ptr<SetStreamProfile::Request>& request,
+                                    std::vector<PendingStreamProfile>& pending_profiles,
+                                    std::string& message);
+
+  bool applyStreamProfiles(const std::vector<PendingStreamProfile>& pending_profiles,
+                           std::string& message);
 
   void updateImageConfig(const stream_index_pair& stream_index);
 
@@ -178,6 +201,8 @@ class OBCameraNode {
   void getParameters();
 
   void setupTopics();
+
+  void setupImagePublisher(const stream_index_pair& stream_index);
 
   void setupPipelineConfig();
 
@@ -298,6 +323,9 @@ class OBCameraNode {
 
   void setIRLongExposureCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request>& request,
                                  std::shared_ptr<std_srvs::srv::SetBool::Response>& response);
+
+  void setStreamProfileCallback(const std::shared_ptr<SetStreamProfile::Request>& request,
+                                std::shared_ptr<SetStreamProfile::Response>& response);
 
   void publishPointCloud(const std::shared_ptr<ob::FrameSet>& frame_set);
 
@@ -425,6 +453,7 @@ class OBCameraNode {
   rclcpp::Service<GetString>::SharedPtr get_sdk_version_srv_;
   rclcpp::Service<SetString>::SharedPtr switch_ir_camera_srv_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr set_ir_long_exposure_srv_;
+  rclcpp::Service<SetStreamProfile>::SharedPtr set_stream_profile_srv_;
   std::map<stream_index_pair, rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr>
       set_auto_exposure_srv_;
   rclcpp::Service<GetDeviceInfo>::SharedPtr get_device_srv_;
