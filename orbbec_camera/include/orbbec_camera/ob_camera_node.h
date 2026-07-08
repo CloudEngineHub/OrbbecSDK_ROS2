@@ -192,6 +192,12 @@ class OBCameraNode {
   bool applyStreamProfiles(const std::vector<PendingStreamProfile>& pending_profiles,
                            std::string& message);
 
+  void clearColorFrameQueue();
+
+  void stopColorFrameThread();
+
+  void setupImageBuffers();
+
   void updateImageConfig(const stream_index_pair& stream_index);
 
   void printSensorProfiles(const std::shared_ptr<ob::Sensor>& sensor);
@@ -340,6 +346,8 @@ class OBCameraNode {
   void onNewFrameSetCallback(std::shared_ptr<ob::FrameSet> frame_set);
 
   std::shared_ptr<ob::Frame> softwareDecodeColorFrame(const std::shared_ptr<ob::Frame>& frame);
+
+  bool isColorFrameDecodeRequired(const std::shared_ptr<ob::Frame>& frame) const;
 
   bool decodeColorFrameToBuffer(const std::shared_ptr<ob::Frame>& frame, uint8_t* buffer);
 
@@ -564,6 +572,7 @@ class OBCameraNode {
   // For color
   std::queue<std::shared_ptr<ob::FrameSet>> color_frame_queue_;
   std::shared_ptr<std::thread> colorFrameThread_ = nullptr;
+  std::atomic_bool stop_color_frame_thread_{false};
   std::mutex color_frame_queue_lock_;
   std::condition_variable color_frame_queue_cv_;
 

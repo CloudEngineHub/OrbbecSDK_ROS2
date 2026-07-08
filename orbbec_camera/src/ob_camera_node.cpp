@@ -83,26 +83,65 @@ OBCameraNode::OBCameraNode(rclcpp::Node *node, std::shared_ptr<ob::Device> devic
       frame_timestamp_csv_logger_.reset();
     }
   }
-#if defined(USE_RK_HW_DECODER)
-  jpeg_decoder_ = std::make_unique<RKJPEGDecoder>(width_[COLOR], height_[COLOR]);
-#elif defined(USE_NV_HW_DECODER)
-  jpeg_decoder_ = std::make_unique<JetsonNvJPEGDecoder>(width_[COLOR], height_[COLOR]);
-#endif
   if (enable_d2c_viewer_) {
     auto rgb_qos = getRMWQosProfileFromString(image_qos_[COLOR]);
     auto depth_qos = getRMWQosProfileFromString(image_qos_[DEPTH]);
     d2c_viewer_ = std::make_unique<D2CViewer>(node_, rgb_qos, depth_qos);
   }
-  if (enable_stream_[COLOR]) {
-    rgb_buffer_ = new uint8_t[width_[COLOR] * height_[COLOR] * 3];
-  }
-  if (enable_colored_point_cloud_ && enable_stream_[DEPTH] && enable_stream_[COLOR]) {
-    rgb_point_cloud_buffer_size_ = width_[COLOR] * height_[COLOR] * sizeof(OBColorPoint);
-    rgb_point_cloud_buffer_ = new uint8_t[rgb_point_cloud_buffer_size_];
-    xy_table_data_size_ = width_[DEPTH] * height_[DEPTH] * 2;
-    xy_table_data_ = new float[xy_table_data_size_];
-  }
+  setupImageBuffers();
   is_camera_node_initialized_ = true;
+}
+
+void OBCameraNode::clearColorFrameQueue() {
+  std::lock_guard<std::mutex> color_queue_lock(color_frame_queue_lock_);
+  std::queue<std::shared_ptr<ob::FrameSet>> empty_queue;
+  color_frame_queue_.swap(empty_queue);
+  is_color_frame_decoded_ = false;
+}
+
+void OBCameraNode::stopColorFrameThread() {
+  if (!colorFrameThread_) {
+    return;
+  }
+  stop_color_frame_thread_.store(true);
+  color_frame_queue_cv_.notify_all();
+  if (colorFrameThread_->joinable()) {
+    colorFrameThread_->join();
+  }
+  colorFrameThread_.reset();
+  stop_color_frame_thread_.store(false);
+}
+
+void OBCameraNode::setupImageBuffers() {
+  delete[] rgb_buffer_;
+  rgb_buffer_ = nullptr;
+  jpeg_decoder_.reset();
+
+#if defined(USE_RK_HW_DECODER)
+  if (enable_stream_[COLOR] && width_[COLOR] > 0 && height_[COLOR] > 0) {
+    jpeg_decoder_ = std::make_unique<RKJPEGDecoder>(width_[COLOR], height_[COLOR]);
+  }
+#elif defined(USE_NV_HW_DECODER)
+  if (enable_stream_[COLOR] && width_[COLOR] > 0 && height_[COLOR] > 0) {
+    jpeg_decoder_ = std::make_unique<JetsonNvJPEGDecoder>(width_[COLOR], height_[COLOR]);
+  }
+#endif
+
+  if (enable_stream_[COLOR]) {
+    CHECK(width_[COLOR] > 0 && height_[COLOR] > 0);
+    rgb_buffer_ = new uint8_t[width_[COLOR] * height_[COLOR] * 4];
+  }
+
+  if (enable_colored_point_cloud_ && enable_stream_[DEPTH] && enable_stream_[COLOR]) {
+    xy_tables_.reset();
+    const uint32_t point_cloud_buffer_size = width_[COLOR] * height_[COLOR] * sizeof(OBColorPoint);
+    if (point_cloud_buffer_size > rgb_point_cloud_buffer_size_) {
+      delete[] rgb_point_cloud_buffer_;
+      rgb_point_cloud_buffer_ = new uint8_t[point_cloud_buffer_size];
+      rgb_point_cloud_buffer_size_ = point_cloud_buffer_size;
+    }
+  }
+  is_color_frame_decoded_ = false;
 }
 
 template <class T>
@@ -144,10 +183,7 @@ void OBCameraNode::clean() noexcept {
     tf_thread_->join();
   }
   RCLCPP_WARN_STREAM(logger_, "Stop color frame thread");
-  if (colorFrameThread_ && colorFrameThread_->joinable()) {
-    color_frame_queue_cv_.notify_all();
-    colorFrameThread_->join();
-  }
+  stopColorFrameThread();
 
   RCLCPP_WARN_STREAM(logger_, "stop streams");
   stopStreams();
@@ -1026,11 +1062,8 @@ bool OBCameraNode::applyStreamProfiles(const std::vector<PendingStreamProfile> &
     if (restart_pipeline) {
       stopStreams();
     }
-    {
-      std::lock_guard<std::mutex> color_queue_lock(color_frame_queue_lock_);
-      std::queue<std::shared_ptr<ob::FrameSet>> empty_queue;
-      color_frame_queue_.swap(empty_queue);
-    }
+    stopColorFrameThread();
+    clearColorFrameQueue();
 
     for (const auto &pending_profile : pending_profiles) {
       const auto &stream_index = pending_profile.stream_index;
@@ -1055,6 +1088,8 @@ bool OBCameraNode::applyStreamProfiles(const std::vector<PendingStreamProfile> &
                        << ", format: " << magic_enum::enum_name(format_[stream_index]));
     }
 
+    setupImageBuffers();
+    clearColorFrameQueue();
     if (restart_pipeline) {
       startStreams();
     }
@@ -1071,25 +1106,51 @@ bool OBCameraNode::applyStreamProfiles(const std::vector<PendingStreamProfile> &
 }
 
 void OBCameraNode::updateImageConfig(const stream_index_pair &stream_index) {
-  if (format_[stream_index] == OB_FORMAT_Y8) {
+  const auto format = format_[stream_index];
+  const bool is_depth_stream = stream_index.first == OB_STREAM_DEPTH;
+  const bool is_ir_stream = stream_index.first == OB_STREAM_IR ||
+                            stream_index.first == OB_STREAM_IR_LEFT ||
+                            stream_index.first == OB_STREAM_IR_RIGHT;
+  const bool is_color_stream = stream_index == COLOR;
+
+  if (format == OB_FORMAT_Y8 || format == OB_FORMAT_GRAY) {
     image_format_[stream_index] = CV_8UC1;
-    encoding_[stream_index] = stream_index.first == OB_STREAM_DEPTH
-                                  ? sensor_msgs::image_encodings::TYPE_8UC1
-                                  : sensor_msgs::image_encodings::MONO8;
+    encoding_[stream_index] = is_depth_stream ? sensor_msgs::image_encodings::TYPE_8UC1
+                                              : sensor_msgs::image_encodings::MONO8;
     unit_step_size_[stream_index] = sizeof(uint8_t);
-  }
-  if (format_[stream_index] == OB_FORMAT_MJPG) {
-    if (stream_index.first == OB_STREAM_IR || stream_index.first == OB_STREAM_IR_LEFT ||
-        stream_index.first == OB_STREAM_IR_RIGHT) {
+  } else if (format == OB_FORMAT_Y10 || format == OB_FORMAT_Y11 || format == OB_FORMAT_Y12 ||
+             format == OB_FORMAT_Y14 || format == OB_FORMAT_Y16 || format == OB_FORMAT_Z16 ||
+             format == OB_FORMAT_RW16) {
+    image_format_[stream_index] = CV_16UC1;
+    encoding_[stream_index] = is_depth_stream ? sensor_msgs::image_encodings::TYPE_16UC1
+                                              : sensor_msgs::image_encodings::MONO16;
+    unit_step_size_[stream_index] = sizeof(uint16_t);
+  } else if (format == OB_FORMAT_MJPG || format == OB_FORMAT_MJPEG) {
+    if (is_ir_stream) {
       image_format_[stream_index] = CV_8UC1;
       encoding_[stream_index] = sensor_msgs::image_encodings::MONO8;
       unit_step_size_[stream_index] = sizeof(uint8_t);
+    } else if (is_color_stream) {
+      image_format_[stream_index] = CV_8UC3;
+      encoding_[stream_index] = sensor_msgs::image_encodings::RGB8;
+      unit_step_size_[stream_index] = 3 * sizeof(uint8_t);
     }
-  }
-  if (format_[stream_index] == OB_FORMAT_Y16 && stream_index == COLOR) {
-    image_format_[stream_index] = CV_16UC1;
-    encoding_[stream_index] = sensor_msgs::image_encodings::MONO16;
-    unit_step_size_[stream_index] = sizeof(uint16_t);
+  } else if (format == OB_FORMAT_BGR) {
+    image_format_[stream_index] = CV_8UC3;
+    encoding_[stream_index] = sensor_msgs::image_encodings::BGR8;
+    unit_step_size_[stream_index] = 3 * sizeof(uint8_t);
+  } else if (format == OB_FORMAT_RGB || format == OB_FORMAT_RGB888) {
+    image_format_[stream_index] = CV_8UC3;
+    encoding_[stream_index] = sensor_msgs::image_encodings::RGB8;
+    unit_step_size_[stream_index] = 3 * sizeof(uint8_t);
+  } else if (format == OB_FORMAT_BGRA) {
+    image_format_[stream_index] = CV_8UC4;
+    encoding_[stream_index] = sensor_msgs::image_encodings::BGRA8;
+    unit_step_size_[stream_index] = 4 * sizeof(uint8_t);
+  } else if (format == OB_FORMAT_RGBA) {
+    image_format_[stream_index] = CV_8UC4;
+    encoding_[stream_index] = sensor_msgs::image_encodings::RGBA8;
+    unit_step_size_[stream_index] = 4 * sizeof(uint8_t);
   }
 }
 
@@ -2155,12 +2216,15 @@ void OBCameraNode::onNewFrameSetCallback(std::shared_ptr<ob::FrameSet> frame_set
 }
 
 void OBCameraNode::onNewColorFrameCallback() {
-  while (enable_stream_[COLOR] && rclcpp::ok() && is_running_.load()) {
+  while (enable_stream_[COLOR] && rclcpp::ok() && is_running_.load() &&
+         !stop_color_frame_thread_.load()) {
     std::unique_lock<std::mutex> lock(color_frame_queue_lock_);
-    color_frame_queue_cv_.wait(
-        lock, [this]() { return !color_frame_queue_.empty() || !(is_running_.load()); });
+    color_frame_queue_cv_.wait(lock, [this]() {
+      return !color_frame_queue_.empty() || !(is_running_.load()) ||
+             stop_color_frame_thread_.load();
+    });
 
-    if (!rclcpp::ok() || !is_running_.load()) {
+    if (!rclcpp::ok() || !is_running_.load() || stop_color_frame_thread_.load()) {
       break;
     }
 
@@ -2182,10 +2246,12 @@ std::shared_ptr<ob::Frame> OBCameraNode::softwareDecodeColorFrame(
   if (frame->format() == OB_FORMAT_RGB || frame->format() == OB_FORMAT_BGR) {
     return frame;
   }
-  if (frame->format() == OB_FORMAT_RGB || frame->format() == OB_FORMAT_BGR) {
-    return frame;
-  }
-  if (frame->format() == OB_FORMAT_Y16 || frame->format() == OB_FORMAT_Y8) {
+  if (frame->format() == OB_FORMAT_RGB888 || frame->format() == OB_FORMAT_RGBA ||
+      frame->format() == OB_FORMAT_BGRA || frame->format() == OB_FORMAT_Y8 ||
+      frame->format() == OB_FORMAT_GRAY || frame->format() == OB_FORMAT_Y10 ||
+      frame->format() == OB_FORMAT_Y11 || frame->format() == OB_FORMAT_Y12 ||
+      frame->format() == OB_FORMAT_Y14 || frame->format() == OB_FORMAT_Y16 ||
+      frame->format() == OB_FORMAT_Z16 || frame->format() == OB_FORMAT_RW16) {
     return frame;
   }
   if (!setupFormatConvertType(frame->format())) {
@@ -2201,13 +2267,31 @@ std::shared_ptr<ob::Frame> OBCameraNode::softwareDecodeColorFrame(
   return color_frame;
 }
 
+bool OBCameraNode::isColorFrameDecodeRequired(const std::shared_ptr<ob::Frame> &frame) const {
+  if (frame == nullptr) {
+    return false;
+  }
+  const auto format = frame->format();
+  if (format == OB_FORMAT_RGB || format == OB_FORMAT_BGR || format == OB_FORMAT_RGB888 ||
+      format == OB_FORMAT_RGBA || format == OB_FORMAT_BGRA || format == OB_FORMAT_Y8 ||
+      format == OB_FORMAT_GRAY || format == OB_FORMAT_Y10 || format == OB_FORMAT_Y11 ||
+      format == OB_FORMAT_Y12 || format == OB_FORMAT_Y14 || format == OB_FORMAT_Y16 ||
+      format == OB_FORMAT_Z16 || format == OB_FORMAT_RW16) {
+    return false;
+  }
+  return true;
+}
+
 bool OBCameraNode::decodeColorFrameToBuffer(const std::shared_ptr<ob::Frame> &frame,
                                             uint8_t *buffer) {
   if (frame == nullptr) {
     return false;
   }
-  if (!rgb_buffer_) {
+  if (!buffer) {
     return false;
+  }
+  if (!isColorFrameDecodeRequired(frame)) {
+    return true;
   }
   CHECK_NOTNULL(image_publishers_[COLOR]);
   bool has_subscriber = image_publishers_[COLOR]->get_subscription_count() > 0;
@@ -2456,12 +2540,15 @@ void OBCameraNode::onNewFrameCallback(const std::shared_ptr<ob::Frame> &frame,
   if (image.empty() || image.cols != width || image.rows != height) {
     image.create(height, width, image_format_[stream_index]);
   }
-  if (frame->type() == OB_FRAME_COLOR && !is_color_frame_decoded_) {
+  const bool use_decoded_color_buffer =
+      frame->type() == OB_FRAME_COLOR && isColorFrameDecodeRequired(frame);
+  if (use_decoded_color_buffer && !is_color_frame_decoded_) {
     RCLCPP_ERROR(logger_, "color frame is not decoded");
     return;
   }
-  if (frame->type() == OB_FRAME_COLOR) {
-    memcpy(image.data, rgb_buffer_, video_frame->width() * video_frame->height() * 3);
+  if (use_decoded_color_buffer) {
+    memcpy(image.data, rgb_buffer_,
+           video_frame->width() * video_frame->height() * unit_step_size_[stream_index]);
   } else {
     memcpy(image.data, video_frame->data(), video_frame->dataSize());
   }
