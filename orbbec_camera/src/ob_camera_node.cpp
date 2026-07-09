@@ -1612,7 +1612,10 @@ void OBCameraNode::publishLrmObstacleDistance() {
   }
   try {
     std_msgs::msg::Int32 msg;
-    msg.data = device_->getIntProperty(OB_PROP_LDP_MEASURE_DISTANCE_INT);
+    {
+      std::lock_guard<decltype(device_lock_)> lock(device_lock_);
+      msg.data = device_->getIntProperty(OB_PROP_LDP_MEASURE_DISTANCE_INT);
+    }
     lrm_obstacle_distance_pub_->publish(msg);
   } catch (const ob::Error &e) {
     RCLCPP_WARN_THROTTLE(logger_, *node_->get_clock(), 5000,
