@@ -170,6 +170,8 @@ class OBCameraNode {
 
   void setupProfiles();
 
+  void syncSoftwareAlignment();
+
   void updateImageConfig(const stream_index_pair& stream_index);
 
   void printSensorProfiles(const std::shared_ptr<ob::Sensor>& sensor);
@@ -271,6 +273,9 @@ class OBCameraNode {
   void toggleSensorCallback(const std::shared_ptr<SetBool::Request>& request,
                             std::shared_ptr<SetBool::Response>& response,
                             const stream_index_pair& stream_index);
+
+  void setImageRegistrationModeCallback(const std::shared_ptr<SetString::Request> request,
+                                        std::shared_ptr<SetString::Response> response);
 
   void setMirrorCallback(const std::shared_ptr<SetBool::Request>& request,
                          std::shared_ptr<SetBool::Response>& response,
@@ -427,6 +432,7 @@ class OBCameraNode {
   rclcpp::Service<SetBool>::SharedPtr set_auto_white_balance_srv_;
   rclcpp::Service<GetString>::SharedPtr get_sdk_version_srv_;
   rclcpp::Service<SetString>::SharedPtr switch_ir_camera_srv_;
+  rclcpp::Service<SetString>::SharedPtr set_image_registration_mode_srv_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr set_ir_long_exposure_srv_;
   std::map<stream_index_pair, rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr>
       set_auto_exposure_srv_;
@@ -535,6 +541,7 @@ class OBCameraNode {
   // mjpeg decoder
   std::shared_ptr<JPEGDecoder> jpeg_decoder_ = nullptr;
   uint8_t* rgb_buffer_ = nullptr;
+  size_t rgb_buffer_size_ = 0;
   bool is_color_frame_decoded_ = false;
   std::mutex device_lock_;
   // For color

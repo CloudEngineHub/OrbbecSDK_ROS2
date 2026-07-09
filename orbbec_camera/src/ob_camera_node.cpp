@@ -92,7 +92,8 @@ OBCameraNode::OBCameraNode(rclcpp::Node *node, std::shared_ptr<ob::Device> devic
     d2c_viewer_ = std::make_unique<D2CViewer>(node_, rgb_qos, depth_qos);
   }
   if (enable_stream_[COLOR]) {
-    rgb_buffer_ = new uint8_t[width_[COLOR] * height_[COLOR] * 3];
+    rgb_buffer_size_ = static_cast<size_t>(width_[COLOR]) * height_[COLOR] * 3;
+    rgb_buffer_ = new uint8_t[rgb_buffer_size_];
   }
   if (enable_colored_point_cloud_ && enable_stream_[DEPTH] && enable_stream_[COLOR]) {
     rgb_point_cloud_buffer_size_ = width_[COLOR] * height_[COLOR] * sizeof(OBColorPoint);
@@ -161,6 +162,7 @@ void OBCameraNode::clean() noexcept {
   if (rgb_buffer_) {
     delete[] rgb_buffer_;
     rgb_buffer_ = nullptr;
+    rgb_buffer_size_ = 0;
   }
   if (rgb_point_cloud_buffer_) {
     delete[] rgb_point_cloud_buffer_;
@@ -286,9 +288,12 @@ void OBCameraNode::setupDevices() {
                          "Laser energy level set to " << new_laser_energy_level << " (new value)");
     }
   }
-  if (depth_registration_) {
+  if (depth_registration_ && (align_mode_ == "SW" || isGemini335PID(pid))) {
     RCLCPP_INFO_STREAM(logger_, "Create align filter");
     align_filter_ = std::make_unique<ob::Align>(align_target_stream_);
+    if (align_mode_ == "SW") {
+      RCLCPP_INFO_STREAM(logger_, "set align mode to " << align_mode_);
+    }
   }
   if (device_->isPropertySupported(OB_PROP_DISPARITY_TO_DEPTH_BOOL, OB_PERMISSION_READ_WRITE)) {
     TRY_TO_SET_PROPERTY(setBoolProperty, OB_PROP_DISPARITY_TO_DEPTH_BOOL, enable_hardware_d2d_);
@@ -893,6 +898,26 @@ void OBCameraNode::setupProfiles() {
     }
   }
 }
+
+void OBCameraNode::syncSoftwareAlignment() {
+  bool use_software_alignment = depth_registration_ && align_mode_ == "SW";
+  if (depth_registration_ && align_mode_ == "HW" && device_) {
+    auto device_info = device_->getDeviceInfo();
+    CHECK_NOTNULL(device_info.get());
+    use_software_alignment = isGemini335PID(device_info->pid());
+  }
+  if (use_software_alignment) {
+    if (!align_filter_) {
+      align_filter_ = std::make_unique<ob::Align>(align_target_stream_);
+      if (align_mode_ == "SW") {
+        RCLCPP_INFO_STREAM(logger_, "set align mode to " << align_mode_);
+      }
+    }
+    return;
+  }
+  align_filter_.reset();
+}
+
 void OBCameraNode::updateImageConfig(const stream_index_pair &stream_index) {
   if (format_[stream_index] == OB_FORMAT_Y8) {
     image_format_[stream_index] = CV_8UC1;
@@ -1395,9 +1420,9 @@ void OBCameraNode::setupPipelineConfig() {
   CHECK_NOTNULL(device_info.get());
   auto pid = device_info->pid();
   if (depth_registration_ && enable_stream_[COLOR] && enable_stream_[DEPTH] &&
-      !isGemini335PID(pid)) {
-    OBAlignMode align_mode = align_mode_ == "HW" ? ALIGN_D2C_HW_MODE : ALIGN_D2C_SW_MODE;
-    RCLCPP_INFO_STREAM(logger_, "set align mode to " << magic_enum::enum_name(align_mode));
+      !isGemini335PID(pid) && align_mode_ == "HW") {
+    OBAlignMode align_mode = ALIGN_D2C_HW_MODE;
+    RCLCPP_INFO_STREAM(logger_, "set align mode to " << align_mode_);
     pipeline_config_->setAlignMode(align_mode);
     RCLCPP_INFO_STREAM(logger_, "enable depth scale " << (enable_depth_scale_ ? "ON" : "OFF"));
     pipeline_config_->setDepthScaleRequire(enable_depth_scale_);
@@ -1961,19 +1986,51 @@ void OBCameraNode::onNewFrameSetCallback(std::shared_ptr<ob::FrameSet> frame_set
     has_first_color_frame_ = has_first_color_frame_ || color_frame;
     if (isGemini335PID(pid) && depth_frame_) {
       depth_frame_ = processDepthFrameFilter(depth_frame_);
-      if (depth_registration_ && align_filter_ && depth_frame_ && has_first_color_frame_) {
+    }
+    if (depth_registration_ && align_filter_ && depth_frame_ && color_frame) {
+      auto target_frame_type = STREAM_TYPE_TO_FRAME_TYPE.at(align_target_stream_);
+      if (frame_set->getFrame(target_frame_type)) {
+        if (align_target_stream_ == OB_STREAM_DEPTH) {
+          ob::FormatConvertFilter align_color_format_convert_filter;
+          bool need_convert = true;
+          switch (color_frame->format()) {
+            case OB_FORMAT_YUYV:
+              align_color_format_convert_filter.setFormatConvertType(FORMAT_YUYV_TO_RGB888);
+              break;
+            case OB_FORMAT_UYVY:
+              align_color_format_convert_filter.setFormatConvertType(FORMAT_UYVY_TO_RGB888);
+              break;
+            case OB_FORMAT_MJPG:
+              align_color_format_convert_filter.setFormatConvertType(FORMAT_MJPEG_TO_RGB888);
+              break;
+            default:
+              need_convert = false;
+              break;
+          }
+          if (need_convert) {
+            auto converted_color_frame = align_color_format_convert_filter.process(color_frame);
+            if (converted_color_frame) {
+              ob::FrameHelper::pushFrame(frame_set, OB_FRAME_COLOR, converted_color_frame);
+              color_frame = converted_color_frame;
+            } else {
+              RCLCPP_ERROR_SKIPFIRST_THROTTLE(logger_, *(node_->get_clock()), 1000,
+                                              "Failed to convert color frame for C2D alignment");
+            }
+          }
+        }
         auto new_frame = align_filter_->process(frame_set);
         if (new_frame) {
           auto new_frame_set = new_frame->as<ob::FrameSet>();
           CHECK_NOTNULL(new_frame_set.get());
-          depth_frame_ = new_frame_set->getFrame(OB_FRAME_DEPTH);
+          frame_set = new_frame_set;
+          depth_frame_ = frame_set->getFrame(OB_FRAME_DEPTH);
+          color_frame = frame_set->getFrame(OB_FRAME_COLOR);
+          has_first_color_frame_ = has_first_color_frame_ || color_frame;
         } else {
-          RCLCPP_ERROR(logger_, "Failed to align depth frame to color frame");
+          RCLCPP_ERROR(logger_, "Failed to align frame set");
         }
       } else {
-        RCLCPP_DEBUG(logger_,
-                     "Depth registration is disabled or align filter is null or depth frame is "
-                     "null or color frame is null");
+        RCLCPP_DEBUG(logger_, "Depth registration target frame is null, skip software alignment");
       }
     }
     if (enable_stream_[COLOR] && color_frame) {
@@ -2112,6 +2169,12 @@ bool OBCameraNode::decodeColorFrameToBuffer(const std::shared_ptr<ob::Frame> &fr
     if (!video_frame) {
       RCLCPP_ERROR_STREAM(logger_, "Failed to convert frame to video frame");
       return false;
+    }
+    if (video_frame->dataSize() > rgb_buffer_size_) {
+      delete[] rgb_buffer_;
+      rgb_buffer_size_ = video_frame->dataSize();
+      rgb_buffer_ = new uint8_t[rgb_buffer_size_];
+      buffer = rgb_buffer_;
     }
     CHECK_NOTNULL(buffer);
     memcpy(buffer, video_frame->data(), video_frame->dataSize());
