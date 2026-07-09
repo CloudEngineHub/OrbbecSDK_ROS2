@@ -64,6 +64,7 @@
 #include "orbbec_camera/image_publisher.h"
 #include "orbbec_camera/frame_timestamp_csv_logger.h"
 #include "jpeg_decoder.h"
+#include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/string.hpp>
 
 #if __has_include(<cv_bridge/cv_bridge.hpp>)
@@ -184,6 +185,8 @@ class OBCameraNode {
   void setupDiagnosticUpdater();
 
   void onTemperatureUpdate(diagnostic_updater::DiagnosticStatusWrapper& status);
+
+  void publishLrmObstacleDistance();
 
   void setupCameraCtrlServices();
 
@@ -437,6 +440,8 @@ class OBCameraNode {
   rclcpp::Service<SetInt32>::SharedPtr set_fan_work_mode_srv_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr toggle_sensors_srv_;
   rclcpp::Service<GetInt32>::SharedPtr get_ldp_measure_distance_srv_;
+  rclcpp::TimerBase::SharedPtr lrm_obstacle_distance_timer_;
+  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr lrm_obstacle_distance_pub_;
 
   bool enable_sync_output_accel_gyro_ = false;
   bool publish_tf_ = false;
@@ -599,6 +604,8 @@ class OBCameraNode {
   // soft ware trigger
   rclcpp::TimerBase::SharedPtr software_trigger_timer_;
   std::chrono::milliseconds software_trigger_period_{33};
+  bool enable_lrm_obstacle_distance_publish_ = false;
+  double lrm_obstacle_distance_publish_rate_ = 10.0;
   bool enable_heartbeat_ = false;
   std::string industry_mode_ = "";
   bool enable_color_undistortion_ = false;
