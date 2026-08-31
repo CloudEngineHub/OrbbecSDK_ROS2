@@ -1589,17 +1589,12 @@ void OBCameraNode::publishPointCloud(const std::shared_ptr<ob::FrameSet> &frame_
 }
 
 void OBCameraNode::publishDepthPointCloud(const std::shared_ptr<ob::FrameSet> &frame_set) {
-  (void)frame_set;
   if (!depth_cloud_pub_ || depth_cloud_pub_->get_subscription_count() == 0 ||
-      !enable_point_cloud_ || !depth_frame_) {
+      !enable_point_cloud_) {
     return;
   }
   std::lock_guard<decltype(point_cloud_mutex_)> point_cloud_msg_lock(point_cloud_mutex_);
-  if (!depth_frame_) {
-    RCLCPP_ERROR_STREAM(logger_, "depth frame is null");
-    return;
-  }
-  auto depth_frame = depth_frame_->as<ob::DepthFrame>();
+  auto depth_frame = frame_set->depthFrame();
   if (!depth_frame) {
     RCLCPP_ERROR_STREAM(logger_, "depth frame is null");
     return;
@@ -1692,17 +1687,12 @@ void OBCameraNode::publishDepthPointCloud(const std::shared_ptr<ob::FrameSet> &f
 void OBCameraNode::publishColoredPointCloud(const std::shared_ptr<ob::FrameSet> &frame_set) {
   if (!depth_registration_cloud_pub_ ||
       depth_registration_cloud_pub_->get_subscription_count() == 0 ||
-      !enable_colored_point_cloud_ || !depth_frame_) {
+      !enable_colored_point_cloud_) {
     return;
   }
 
-  CHECK_NOTNULL(depth_frame_.get());
   std::lock_guard<decltype(point_cloud_mutex_)> point_cloud_msg_lock(point_cloud_mutex_);
-  if (!depth_frame_) {
-    RCLCPP_ERROR_STREAM(logger_, "depth frame is null");
-    return;
-  }
-  auto depth_frame = depth_frame_->as<ob::DepthFrame>();
+  auto depth_frame = frame_set->depthFrame();
   auto color_frame = frame_set->colorFrame();
   if (!depth_frame || !color_frame) {
     return;
@@ -1892,22 +1882,27 @@ void OBCameraNode::onNewFrameSetCallback(std::shared_ptr<ob::FrameSet> frame_set
       publishStaticTransforms();
       tf_published_ = true;
     }
-    depth_frame_ = frame_set->getFrame(OB_FRAME_DEPTH);
+    auto depth_frame = frame_set->getFrame(OB_FRAME_DEPTH);
     auto device_info = device_->getDeviceInfo();
     CHECK_NOTNULL(device_info.get());
     auto pid = device_info->pid();
     auto color_frame = frame_set->getFrame(OB_FRAME_COLOR);
     has_first_color_frame_ = has_first_color_frame_ || color_frame;
-    if (isGemini335PID(pid) && depth_frame_) {
-      depth_frame_ = processDepthFrameFilter(depth_frame_);
-      if (depth_registration_ && align_filter_ && depth_frame_ && has_first_color_frame_) {
+    if (isGemini335PID(pid) && depth_frame) {
+      depth_frame = processDepthFrameFilter(depth_frame);
+      if (depth_frame) {
+        ob::FrameHelper::pushFrame(frame_set, OB_FRAME_DEPTH, depth_frame);
+      }
+      if (depth_registration_ && align_filter_ && depth_frame && has_first_color_frame_) {
         auto new_frame = align_filter_->process(frame_set);
         if (new_frame) {
           auto new_frame_set = new_frame->as<ob::FrameSet>();
           CHECK_NOTNULL(new_frame_set.get());
-          depth_frame_ = new_frame_set->getFrame(OB_FRAME_DEPTH);
+          frame_set = new_frame_set;
+          color_frame = frame_set->getFrame(OB_FRAME_COLOR);
         } else {
           RCLCPP_ERROR(logger_, "Failed to align depth frame to color frame");
+          return;
         }
       } else {
         RCLCPP_DEBUG(logger_,
@@ -1936,9 +1931,6 @@ void OBCameraNode::onNewFrameSetCallback(std::shared_ptr<ob::FrameSet> frame_set
         auto frame = frame_set->getFrame(frame_type);
         if (frame == nullptr) {
           continue;
-        }
-        if (stream_index == DEPTH) {
-          frame = depth_frame_;
         }
         onNewFrameCallback(frame, stream_index);
       }
